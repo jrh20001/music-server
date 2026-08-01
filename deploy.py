@@ -9,10 +9,10 @@ import json
 import urllib.request
 
 HCONTROL = "ubuntu@hcontrol.local"
-PASSWORD = "pi120741"
+PASSWORD = "password"
 KODI_IP = "192.168.50.149"
 KODI_USER = "xbian"
-KODI_PASS = "pi120741"
+KODI_PASS = "password"
 LOCAL_DIR = "/home/jerry/projects/music-server"
 REMOTE_DIR = "/home/ubuntu/music-server"
 
