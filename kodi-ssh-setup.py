@@ -18,7 +18,7 @@ except ImportError:
 
 KODI_HOST = "xbian.local"
 KODI_USER = "xbian"
-KODI_PASS = "pi120741"
+KODI_PASS = "password"
 SOURCE_URL = "http://192.168.50.4:8080/streams/"
 SOURCE_NAME = "Music Server"
 
