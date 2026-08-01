@@ -1,0 +1,62 @@
+{
+  "smooth-jazz": {
+    "name": "Smooth Jazz",
+    "description": "Smooth jazz & soulful R&B instrumentals for focus and relaxation",
+    "youtube_url": "https://www.youtube.com/watch?v=rAPcQyJrqck",
+    "thumbnail": ""
+  },
+  "cocktail-piano": {
+    "name": "Cocktail Piano",
+    "description": "Cozy jazz lounge with fireplace & rain - relaxing piano instrumentals",
+    "youtube_url": "https://www.youtube.com/watch?v=atnj4vAa9lo",
+    "thumbnail": ""
+  },
+  "top-40": {
+    "name": "Top 40 Hits",
+    "description": "Billboard Hot 100 pop hits from top artists",
+    "youtube_url": "https://www.youtube.com/watch?v=BDeTaH-XCfg",
+    "thumbnail": ""
+  },
+  "romantic-accordion": {
+    "name": "Romantic Paris Accordion",
+    "description": "Romantic French accordion & piano - spring in Paris ambiance",
+    "youtube_url": "https://www.youtube.com/watch?v=54qfjjY3GWo",
+    "thumbnail": ""
+  },
+  "paris-cafe": {
+    "name": "Paris Cafe",
+    "description": "Parisian cafe music with accordion & jazz guitar",
+    "youtube_url": "https://www.youtube.com/watch?v=edLw0vCw07k",
+    "thumbnail": ""
+  },
+  "acoustic-jazz-guitar": {
+    "name": "Acoustic Jazz Guitar",
+    "description": "Bossa nova acoustic jazz guitar for focus and calm",
+    "youtube_url": "https://www.youtube.com/watch?v=8i0b_m9Y734",
+    "thumbnail": ""
+  },
+  "bossa-nova-jazz": {
+    "name": "Bossa Nova Jazz",
+    "description": "Smooth bossa nova jazz for relaxation and unwinding",
+    "youtube_url": "https://www.youtube.com/watch?v=e7uYvHQdIOk",
+    "thumbnail": ""
+  },
+  "santana-late-night": {
+    "name": "Santana Late Night",
+    "description": "Latin blues rock guitar inspired by Santana - late night vibes",
+    "youtube_url": "https://www.youtube.com/watch?v=EdHCv4X8ME8",
+    "thumbnail": ""
+  },
+  "brazilian-jazz-fusion": {
+    "name": "Brazilian Jazz Fusion",
+    "description": "Latin nu jazz fusion with bossa nova and house influences",
+    "youtube_url": "https://www.youtube.com/watch?v=mCozpigpUn0",
+    "thumbnail": ""
+  },
+  "60s-70s": {
+    "name": "60s and 70s",
+    "description": "Golden oldies classic hits from the 60s and 70s",
+    "youtube_url": "https://www.youtube.com/watch?v=PLgHW2yGtPM",
+    "thumbnail": ""
+  }
+}
