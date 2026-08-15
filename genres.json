@@ -18,45 +18,33 @@
     "thumbnail": ""
   },
   "romantic-accordion": {
-    "name": "Romantic Paris Accordion",
-    "description": "Romantic French accordion & piano - spring in Paris ambiance",
-    "youtube_url": "https://www.youtube.com/watch?v=54qfjjY3GWo",
-    "thumbnail": ""
-  },
-  "paris-cafe": {
-    "name": "Paris Cafe",
-    "description": "Parisian cafe music with accordion & jazz guitar",
-    "youtube_url": "https://www.youtube.com/watch?v=edLw0vCw07k",
+    "name": "French Cafe Music",
+    "description": "Parisian Jazz and Relaxing Accordion Frency Music",
+    "youtube_url": "https://www.youtube.com/watch?v=TeOQf3rzSW8&list=RDTeOQf3rzSW8&start_radio=1&t=3731s",
     "thumbnail": ""
   },
   "acoustic-jazz-guitar": {
-    "name": "Acoustic Jazz Guitar",
+    "name": "Bossa Nova Acoustic Jazz Guitar",
     "description": "Bossa nova acoustic jazz guitar for focus and calm",
     "youtube_url": "https://www.youtube.com/watch?v=8i0b_m9Y734",
     "thumbnail": ""
   },
   "bossa-nova-jazz": {
     "name": "Bossa Nova Jazz",
-    "description": "Smooth bossa nova jazz for relaxation and unwinding",
-    "youtube_url": "https://www.youtube.com/watch?v=e7uYvHQdIOk",
-    "thumbnail": ""
-  },
-  "santana-late-night": {
-    "name": "Santana Late Night",
-    "description": "Latin blues rock guitar inspired by Santana - late night vibes",
-    "youtube_url": "https://www.youtube.com/watch?v=EdHCv4X8ME8",
-    "thumbnail": ""
-  },
-  "brazilian-jazz-fusion": {
-    "name": "Brazilian Jazz Fusion",
-    "description": "Latin nu jazz fusion with bossa nova and house influences",
-    "youtube_url": "https://www.youtube.com/watch?v=mCozpigpUn0",
+    "description": "Smooth bossa nova jazz in coffee shop ambience",
+    "youtube_url": "https://www.youtube.com/watch?v=G6gRMc6v0mI&list=RDG6gRMc6v0mI&start_radio=1",
     "thumbnail": ""
   },
   "60s-70s": {
-    "name": "60s and 70s",
-    "description": "Golden oldies classic hits from the 60s and 70s",
-    "youtube_url": "https://www.youtube.com/watch?v=PLgHW2yGtPM",
+    "name": "70s 80s 90s",
+    "description": "Very best of 70s 80s 90s",
+    "youtube_url": "https://www.youtube.com/watch?v=cSUO5vwQChA&list=RDcSUO5vwQChA&start_radio=1&t=23s",
+    "thumbnail": ""
+  },
+  "acoustic-alchemy": {
+    "name": "Best of Acoustic Alchemy",
+    "description": "Best of Acoustic Alchemy",
+    "youtube_url": "https://www.youtube.com/watch?v=9k6z4K8SkwU&list=PLMOd3pglo-Ei-2EAFCk_s3oovvIvfFmlG",
     "thumbnail": ""
   }
 }

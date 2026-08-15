@@ -20,7 +20,8 @@ CONFIG_PATH = ROOT / "genres.json"
 STREAMS_DIR = ROOT / "streams"
 HOST = "0.0.0.0"
 PORT = int(os.environ.get("PORT", "8778"))
-REFRESH_INTERVAL = int(os.environ.get("REFRESH_INTERVAL", "3600"))
+REFRESH_INTERVAL = int(os.environ.get("REFRESH_INTERVAL", "1800"))
+STREAM_TTL = int(os.environ.get("STREAM_TTL", "1800"))  # live URLs die ~40min; re-resolve sooner
 
 # Resolve yt-dlp and deno paths
 _YTDLP = os.getenv("YTDLP", str(ROOT / ".venv/bin/yt-dlp"))
@@ -28,18 +29,53 @@ _DENO = os.getenv("DENO", str(Path.home() / ".deno/bin/deno"))
 
 genres = {}
 stream_cache = {}  # genre_key -> {"url": str, "resolved_at": float}
+_last_genres_mtime = 0.0
 
 
 def load_genres():
-    global genres
+    global genres, _last_genres_mtime
     with open(CONFIG_PATH) as f:
         genres = json.load(f)
+    _last_genres_mtime = os.path.getmtime(CONFIG_PATH)
+
+
+def genres_changed():
+    """True if genres.json was modified since it was last loaded."""
+    return os.path.getmtime(CONFIG_PATH) != _last_genres_mtime
 
 
 YTDLP_FMT = "bestaudio[ext=m4a]/bestaudio/best"
 
 
+def _url_playable(url):
+    """Quick Range request to check the stream actually serves (not 403).
+    yt-dlp intermittently returns dead 'cps'-signed URLs for long live
+    restream videos; reject those so we re-resolve instead of caching them."""
+    req = urllib.request.Request(url, headers={"Range": "bytes=0-", "User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status in (200, 206)
+    except urllib.error.HTTPError as e:
+        return e.code in (200, 206)
+    except Exception:
+        return False
+
+
+def plain_video_url(url):
+    """Strip radio-mix params (list=RD*, start_radio, t). YouTube throttles
+    yt-dlp on auto-generated mixes; the plain video resolves the same stream."""
+    from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+    p = urlparse(url)
+    q = parse_qs(p.query)
+    if q.get("list", [""])[0].startswith("RD"):
+        for k in ("list", "start_radio", "t"):
+            q.pop(k, None)
+        return urlunparse(p._replace(query=urlencode(q, doseq=True)))
+    return url
+
+
 def resolve_stream_url(youtube_url):
+    youtube_url = plain_video_url(youtube_url)
     """Get the best audio stream URL from a YouTube video.
     Tries Inception API first (if INCEPTION_API_KEY is set), then falls back to yt-dlp.
     Prefers audio-only m4a, falls back to any audio, then best combined."""
@@ -59,17 +95,26 @@ def resolve_stream_url(youtube_url):
                     print(f"  Inception API did not return stream_url for {youtube_url}")
         except Exception as e:
             print(f"  Inception API error: {e}")
-    # Fallback to yt-dlp (with deno runtime)
+    # Fallback to yt-dlp (with deno runtime). Long live-restream videos make
+    # yt-dlp intermittently return dead 'cps'-signed URLs (~50% 403); verify
+    # each and retry so we never cache an unplayable URL.
     try:
-        cmd = [_YTDLP, "--js-runtimes", f"deno:{_DENO}", "-g", "-f", YTDLP_FMT, youtube_url]
-        result = subprocess.run(
-            cmd,
-            capture_output=True, text=True, timeout=30,
-        )
-        url = result.stdout.strip()
-        if url:
-            return url
-        if result.stderr:
+        for attempt in range(4):
+            cmd = [_YTDLP, "--js-runtimes", f"deno:{_DENO}", "-g", "-f", YTDLP_FMT, youtube_url]
+            result = subprocess.run(
+                cmd,
+                capture_output=True, text=True, timeout=180,
+            )
+            # Playlists print one URL per line; take only the first video's stream
+            url = (result.stdout.strip().splitlines() or [""])[0]
+            if url and _url_playable(url):
+                return url
+            if url:
+                print(f"  Unplayable URL (403) on attempt {attempt + 1}, retrying...")
+            elif result.stderr:
+                print(f"  yt-dlp stderr: {result.stderr.strip()}")
+            time.sleep(2)
+        if result.stderr and not result.stdout:
             print(f"  yt-dlp stderr: {result.stderr.strip()}")
     except FileNotFoundError:
         print("  ERROR: yt-dlp not found.")
@@ -104,6 +149,17 @@ def refresh_all_streams():
             print(f"  FAILED: {genre['name']}")
             if key in stream_cache:
                 print(f"  Keeping previous URL for {genre['name']}")
+        # YouTube throttles rapid successive lookups; pace ourselves
+        time.sleep(2)
+
+
+def refresh_all():
+    """Reload genres.json if changed, re-resolve stream URLs, rewrite static files."""
+    if genres_changed():
+        print(f"[{datetime.now().isoformat()}] genres.json changed, reloading")
+        load_genres()
+    refresh_all_streams()
+    generate_static_files()
 
 
 def background_refresher():
@@ -111,7 +167,7 @@ def background_refresher():
     while True:
         time.sleep(REFRESH_INTERVAL)
         print(f"\n[{datetime.now().isoformat()}] Refreshing stream URLs...")
-        refresh_all_streams()
+        refresh_all()
 
 
 def get_stream_url(key):
@@ -140,18 +196,28 @@ def generate_static_files():
     index = []
     for key, genre in genres.items():
         url = get_stream_url(key)
+        strm_path = STREAMS_DIR / f"{key}.strm"
+        nfo_path = STREAMS_DIR / f"{key}.nfo"
+
         if not url:
+            # Drop files for unresolved genres so no expired URL is served
+            for p in (strm_path, nfo_path):
+                if p.exists():
+                    p.unlink()
+                    print(f"  Removed stale: {p.name}")
             print(f"  Skipping {genre['name']} (no URL resolved)")
             continue
-
-        safe_name = key
-        strm_path = STREAMS_DIR / f"{safe_name}.strm"
-        nfo_path = STREAMS_DIR / f"{safe_name}.nfo"
 
         strm_path.write_text(url)
         nfo_path.write_text(get_nfo_content(key, genre))
         print(f"  Generated: {strm_path.name} + {nfo_path.name}")
-        index.append((safe_name, genre))
+        index.append((key, genre))
+
+    # Drop leftovers for genres that no longer exist (album.nfo is shared)
+    for f in STREAMS_DIR.glob("*"):
+        if f.suffix in (".strm", ".nfo") and f.stem not in genres:
+            f.unlink()
+            print(f"  Removed stale: {f.name}")
 
     # Generate a combined M3U playlist
     m3u_path = STREAMS_DIR / "playlist.m3u"
@@ -383,24 +449,27 @@ document.addEventListener('click', function(e) {{
     def _serve_strm(self, key):
         if key not in genres:
             return self._serve_404()
-        # Check cache first (fresh URLs from refresh)
+        # Fresh in-memory cache wins over the (possibly stale) disk file,
+        # but live-stream URLs expire in ~40min, so re-resolve stale entries.
         url = get_stream_url(key)
-        if url:
-            self._send_text(url, "text/plain")
-            return
-        # Fallback to static .strm file
-        strm_path = STREAMS_DIR / f"{key}.strm"
-        if strm_path.exists():
-            url = strm_path.read_text().strip()
+        if url and time.time() - stream_cache[key]["resolved_at"] > STREAM_TTL:
+            print(f"Stale URL for {key}, re-resolving on demand")
+            url = resolve_or_search(genres[key].get("youtube_url", ""), genres[key]["name"])
             if url:
                 stream_cache[key] = {"url": url, "resolved_at": time.time()}
-                self._send_text(url, "text/plain")
-                return
-        # Try resolving on demand
-        print(f"On-demand resolve for {key}")
-        url = resolve_or_search(genres[key].get("youtube_url", ""), genres[key]["name"])
-        if url:
-            stream_cache[key] = {"url": url, "resolved_at": time.time()}
+        if not url:
+            strm_path = STREAMS_DIR / f"{key}.strm"
+            if strm_path.exists():
+                url = strm_path.read_text().strip()
+                if url:
+                    # Warm the cache from disk
+                    stream_cache[key] = {"url": url, "resolved_at": time.time()}
+        if not url:
+            # Try resolving on demand
+            print(f"On-demand resolve for {key}")
+            url = resolve_or_search(genres[key].get("youtube_url", ""), genres[key]["name"])
+            if url:
+                stream_cache[key] = {"url": url, "resolved_at": time.time()}
         if not url:
             return self._send_text("Stream URL not available", "text/plain", 503)
         self._send_text(url, "text/plain")
@@ -427,7 +496,7 @@ document.addEventListener('click', function(e) {{
 
     def _serve_refresh(self):
         self._send_text("Refreshing... check /health for status", "text/plain")
-        threading.Thread(target=lambda: [refresh_all_streams(), generate_static_files()], daemon=True).start()
+        threading.Thread(target=refresh_all, daemon=True).start()
 
     def _serve_kodi(self):
         """Proxy GET to Kodi JSON-RPC (for health check)."""
@@ -487,15 +556,13 @@ def main():
     STREAMS_DIR.mkdir(exist_ok=True)
 
     print("Resolving stream URLs...")
-    refresh_all_streams()
+
+    # Resolve + generate in the background so the server serves immediately
+    threading.Thread(target=refresh_all, daemon=True).start()
 
     # Start background refresher
     refresher = threading.Thread(target=background_refresher, daemon=True)
     refresher.start()
-
-    # Generate static files
-    print("\nGenerating static STRM/NFO files...")
-    generate_static_files()
 
     print(f"\nStarting server on http://{HOST}:{PORT}")
     print(f"  Web UI:    http://{HOST}:{PORT}/")
