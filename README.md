@@ -31,13 +31,15 @@ hcontrol.local (192.168.50.147)          xbian.local (192.168.50.149)
 
 1. **Music Server** runs on `hcontrol.local` (port 8778). It uses `yt-dlp` to resolve YouTube video URLs into direct audio stream URLs (m4a format).
 
-2. **Stream URLs** are cached in memory and written to static `.strm` files in the `streams/` directory. The background refresher re-resolves URLs every hour (YouTube URLs expire after ~6 hours).
+2. **Stream URLs** are cached in memory and written to static `.strm` files in the `streams/` directory. The background refresher re-resolves URLs every 30 minutes, and stale URLs are re-resolved on demand when served.
 
-3. **Web UI** at `http://hcontrol.local:8778/` shows all genres. Clicking "Play on Kodi" fetches the fresh `.strm` URL and sends it to Kodi's JSON-RPC API via a proxy endpoint.
+3. **URL verification**: each resolved URL is probed with a Range request before being cached. YouTube intermittently returns dead `cps`-signed URLs (~50% of the time) for long "24/7" live-restream videos; those are discarded and re-resolved (up to 4 attempts) so a poisoned URL is never served.
 
-4. **Kodi addon** (`audio.music-server`) lets you browse genres from within Kodi's UI. It fetches the `.strm` URL from the server and resolves it as a playable item.
+4. **Web UI** at `http://hcontrol.local:8778/` shows all genres. Clicking "Play on Kodi" fetches the fresh `.strm` URL and sends it to Kodi's JSON-RPC API.
 
-5. **Kodi web interface** (Chorus 2) at `http://xbian.local:8080/` can also be used to browse and play streams.
+5. **Kodi addon** (`audio.music-server`) lets you browse genres from within Kodi's UI. It fetches the `.strm` URL from the server and resolves it as a playable item. Audio output is routed to the Raspberry Pi headphone jack.
+
+6. **Kodi web interface** (Chorus 2) at `http://xbian.local:8080/` can also browse and play streams.
 
 ## Setup
 
@@ -80,8 +82,10 @@ Add `http://hcontrol.local:8778/playlist.m3u` as an IPTV Simple Client playlist 
 
 ### Auto-start on reboot
 
+The server is started via the `ubuntu` user's crontab (not root, so generated files stay `ubuntu`-owned):
+
 ```bash
-(crontab -l 2>/dev/null; echo '@reboot sleep 10 && cd /path/to/music-server && screen -dmS ms .venv/bin/python server.py') | crontab -
+(crontab -l 2>/dev/null; echo '@reboot sleep 20 && cd /home/ubuntu/music-server && screen -dmS ms .venv/bin/python server.py') | crontab -
 ```
 
 ## Genre configuration
@@ -116,11 +120,20 @@ If `youtube_url` is empty, the server auto-searches YouTube for `"{genre name} l
 
 ## Troubleshooting
 
+**Some genres play, others are silent (403)**
+YouTube intermittently serves dead `cps`-signed URLs for long live-restream videos. The server verifies every URL before caching and retries up to 4 times — so a silent genre should resolve on the next refresh. Force it with `http://hcontrol.local:8778/refresh`.
+
+**No sound from any stream**
+Kodi's audio device may be routed to HDMI instead of the headphone jack. Check Settings > System > Audio > Audio output device, and set it to the headphone device (`ALSA:sysdefault:CARD=Headphones` on XBian).
+
+**Kodi shows stale genre names**
+The Kodi video-source listing is cached. Re-open the "Music Server" source, or browse via the addon (Addons > Music Server Streams), which fetches live.
+
 **Kodi crashes with "two concurrent busydialogs"**
-The addon includes a global `_playing` lock to prevent concurrent play attempts. If the stream URL is expired, the addon silently fails instead of triggering Kodi's error dialog. Refresh streams via `http://hcontrol.local:8778/refresh`.
+The addon includes a global `_playing` lock to prevent concurrent play attempts.
 
 **Stream returns HTTP 403**
-YouTube URLs expire after ~6 hours. The server auto-refreshes every hour, or manually call `/refresh`.
+Live-restream URLs expire quickly. The server re-resolves on a 30-min TTL and verifies before caching.
 
 **Kodi web interface not reachable**
 Kodi must be running with webserver enabled. Check `http://xbian.local:8080/`. If Kodi crashed, restart it:
@@ -140,3 +153,7 @@ ssh xbian@xbian.local 'pkill -9 kodi; nohup /usr/local/lib/kodi/kodi-rbpi --stan
 | `kodi-setup.py` | Configure Kodi video source via JSON-RPC |
 | `kodi-ssh-setup.py` | Configure Kodi video source via SSH |
 | `streams/` | Generated .strm and .nfo files |
+| `PROCESSING-DESCRIPTION.md` | Stream resolution pipeline detail |
+| `SW-Development.md` | Development plan and decisions |
+| `build-transcript.md` | Deployment and fix transcript |
+| `session-transcript.md` | Full troubleshooting session log |
